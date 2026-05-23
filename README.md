@@ -9,3 +9,12 @@
 **界面参考：** [UtauV](https://github.com/emeraldsingers/UtauV) 的包管理器
 
 **声库API参考：** [https://github.com/emeraldsingers/UtauV_Packages](https://github.com/emeraldsingers/UtauV_Packages)
+
+# 开发与构建
+```bash
+# 安装依赖
+npm install
+# 启动开发环境
+npx tauri dev
+# 打包应用
+npx tauri build
