@@ -1,5 +1,9 @@
-# Vue 3 + TypeScript + Vite
+# OpenUtau 声库管理器
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+可一键下载安装在线声库，只要是openutau支持的都可以，声库包文件必须是.zip
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+**声库源api实现参考（请打开美观输出）：** [https://res.ai-lab.top/api/voicebanks.json](https://res.ai-lab.top/api/voicebanks.json)
+# 参考资料
+**代码编写辅助：** Gemini 3 Flash
+**界面参考：** [UtauV](https://github.com/emeraldsingers/UtauV) 的包管理器
+**声库API参考：** [https://github.com/emeraldsingers/UtauV_Packages](https://github.com/emeraldsingers/UtauV_Packages)
