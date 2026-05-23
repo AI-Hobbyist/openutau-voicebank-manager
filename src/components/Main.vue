@@ -54,7 +54,7 @@ const rawData = ref<any>({
 
 const installedCount = ref(0)
 const pendingUpdateCount = ref(0)
-const updateMap = ref<Record<string, boolean>>({}) // singerName -> hasUpdates
+const updateMap = ref<Record<string, string[]>>({}) // singerName -> [vbId1, vbId2]
 const installedMap = ref<Record<string, string[]>>({}) // singerName -> [vbId1, vbId2]
 
 const updateOverallStatus = async (specificStatuses?: any[]) => {
@@ -92,7 +92,7 @@ const updateOverallStatus = async (specificStatuses?: any[]) => {
 
     // 更新映射
     const newInstalledMap: Record<string, string[]> = {}
-    const newUpdateMap: Record<string, boolean> = {}
+    const newUpdateMap: Record<string, string[]> = {}
     
     Object.values(rawData.value.singers).forEach((singer: any) => {
       if (singer.voicebanks) {
@@ -107,11 +107,11 @@ const updateOverallStatus = async (specificStatuses?: any[]) => {
         }
 
         // 有更新
-        const hasUpdate = singerVbs.some((vb: any) =>
-            statuses.find(s => s.id === vb.id && s.install_subdir === vb.install_subdir && s.needs_update)
-        )
-        if (hasUpdate) {
-            newUpdateMap[singer.name] = true
+        const updateIds = singerVbs
+          .filter((vb: any) => statuses.find(s => s.id === vb.id && s.install_subdir === vb.install_subdir && s.needs_update))
+          .map((vb: any) => vb.id)
+        if (updateIds.length > 0) {
+            newUpdateMap[singer.name] = updateIds
         }
       }
     })
@@ -321,15 +321,25 @@ const getLanguages = (singer: any) => {
                   </n-popover>
 
                   <!-- 待更新角标 -->
-                  <div class="update-badge" v-if="updateMap[singer.name]">
-                    <n-icon size="12" color="#fff">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-                            <path d="M256 80c0-8.8-7.2-16-16-16s-16 7.2-16 16v144c0 8.8 7.2 16 16 16h112c8.8 0 16-7.2 16-16s-7.2-16-16-16h-96V80zM256 0C114.6 0 0 114.6 0 256s114.6 256 256 256s256-114.6 256-256S397.4 0 256 0zM256 464c-114.7 0-208-93.3-208-208S141.3 48 256 48s208 93.3 208 208s-93.3 208-208 208z" fill="currentColor"/>
-                            <circle cx="256" cy="272" r="32" fill="currentColor"/>
-                            <path d="M256 202c-11 0-20 9-20 20v110c0 11 9 20 20 20s20-9 20-20V222c0-11-9-20-20-20zM256 354c-11 0-20 9-20 20s9 20 20 20 20-9 20-20-9-20-20-20z" fill="currentColor"/>
-                        </svg>
-                    </n-icon>
-                  </div>
+                  <n-popover trigger="hover" v-if="updateMap[singer.name]">
+                    <template #trigger>
+                      <div class="update-badge">
+                        <n-icon size="12" color="#fff">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                                <path d="M256 80c0-8.8-7.2-16-16-16s-16 7.2-16 16v144c0 8.8 7.2 16 16 16h112c8.8 0 16-7.2 16-16s-7.2-16-16-16h-96V80zM256 0C114.6 0 0 114.6 0 256s114.6 256 256 256s256-114.6 256-256S397.4 0 256 0zM256 464c-114.7 0-208-93.3-208-208S141.3 48 256 48s208 93.3 208 208s-93.3 208-208 208z" fill="currentColor"/>
+                                <circle cx="256" cy="272" r="32" fill="currentColor"/>
+                                <path d="M256 202c-11 0-20 9-20 20v110c0 11 9 20 20 20s20-9 20-20V222c0-11-9-20-20-20zM256 354c-11 0-20 9-20 20s9 20 20 20 20-9 20-20-9-20-20-20z" fill="currentColor"/>
+                            </svg>
+                        </n-icon>
+                      </div>
+                    </template>
+                    <div style="font-size: 12px;">
+                      发现新版本：<br/>
+                      <div v-for="id in updateMap[singer.name]" :key="id" style="color: #f0a020;">
+                        • {{ id }}
+                      </div>
+                    </div>
+                  </n-popover>
                 </div>
               </template>
 

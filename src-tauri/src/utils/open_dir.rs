@@ -1,6 +1,9 @@
 use std::process::Command;
 use std::path::PathBuf;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 #[tauri::command]
 pub fn open_dir(path: String) -> Result<(), String> {
     // 1. 处理路径：如果是相对路径，则直接相对于程序当前运行目录（CWD）
@@ -22,9 +25,13 @@ pub fn open_dir(path: String) -> Result<(), String> {
     // 3. 执行打开指令
     #[cfg(target_os = "windows")]
     {
-        Command::new("explorer")
-            .arg(&path_str)
-            .spawn()
+        let mut cmd = Command::new("explorer");
+        cmd.arg(&path_str);
+        
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+
+        cmd.spawn()
             .map_err(|e| e.to_string())?;
     }
 

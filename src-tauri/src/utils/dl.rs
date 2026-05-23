@@ -7,6 +7,9 @@ use std::collections::HashMap;
 use tauri::{AppHandle, Emitter, Manager, State};
 use super::unzip::unzip_file;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 pub struct DownloadManager {
     pub processes: Arc<Mutex<HashMap<String, Child>>>,
 }
@@ -45,8 +48,8 @@ pub fn download_voicebank(
         let target_subdir = install_subdir_clone.unwrap_or_else(|| install_id_clone.clone());
         let dest_dir = Path::new(&save_path_clone).join(&target_subdir);
 
-        let child_res = Command::new(&aria2_path)
-            .arg(&url)
+        let mut cmd = Command::new(&aria2_path);
+        cmd.arg(&url)
             .arg("-d")
             .arg(&save_path_clone)
             .arg("-o")
@@ -58,8 +61,15 @@ pub fn download_voicebank(
             .arg("-c")
             .arg("--summary-interval=1")
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn();
+            .stderr(Stdio::piped());
+
+        #[cfg(windows)]
+        {
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+
+        let child_res = cmd.spawn();
 
         let mut child = match child_res {
             Ok(c) => c,

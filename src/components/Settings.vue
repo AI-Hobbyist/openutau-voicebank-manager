@@ -5,7 +5,7 @@ import { StoreData } from '../classes/store_data'
 const showModal = ref(false)
 
 const settings = ref({
-  voicebankPath: './Singers',
+  voicebankPath: 'Singers',
   dataSource: 'https://res.ai-lab.top/api/voicebanks.json',
   aria2Path: './3rd/aria2c.exe',
   sevenZipPath: './3rd/7-zip/x64/7za.exe',
@@ -47,7 +47,7 @@ defineExpose({ openSettings })
     <n-form label-placement="left" label-width="120" :model="settings">
       <n-divider>基础设置</n-divider>
       <n-form-item label="声库路径">
-        <n-input v-model:value="settings.voicebankPath" placeholder="默认 ./Singers" />
+        <n-input v-model:value="settings.voicebankPath" placeholder="默认 Singers" />
       </n-form-item>
       <n-form-item label="数据源 URL">
         <n-input v-model:value="settings.dataSource" placeholder="例如 https://res.ai-lab.top/api/voicebanks.json" />
