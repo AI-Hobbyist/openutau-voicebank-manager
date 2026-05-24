@@ -130,7 +130,49 @@ const fetchData = async () => {
   try {
     const response = await getRequest(apiUrl)
     if (response.statusCode === 200) {
-      rawData.value = response.result
+      const data = response.result
+      
+      // 收集所有需要检查的 URL
+      if (data.singers) {
+        const urlChecks: { singerId: string, engine: string, url: string }[] = []
+        for (const singerId in data.singers) {
+          const singer = data.singers[singerId]
+          if (singer.voicebanks) {
+            for (const engine in singer.voicebanks) {
+              const vb = singer.voicebanks[engine]
+              if (vb.url) {
+                urlChecks.push({ singerId, engine, url: vb.url })
+              }
+            }
+          }
+        }
+
+        // 并行检查所有 URL
+        const checkResults = await Promise.all(urlChecks.map(async (item) => {
+          try {
+            const status: number = await invoke('check_url_status', { url: item.url })
+            return { ...item, status }
+          } catch (e) {
+            return { ...item, status: 0 }
+          }
+        }))
+
+        // 根据结果过滤
+        checkResults.forEach(res => {
+          if (res.status !== 200) {
+            delete data.singers[res.singerId].voicebanks[res.engine]
+          }
+        })
+
+        // 清理没有 voicebanks 的歌手
+        for (const singerId in data.singers) {
+          if (Object.keys(data.singers[singerId].voicebanks || {}).length === 0) {
+            delete data.singers[singerId]
+          }
+        }
+      }
+
+      rawData.value = data
       await updateOverallStatus()
     } else {
       console.error('Failed to fetch voicebanks:', response.result)
