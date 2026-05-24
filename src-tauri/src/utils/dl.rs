@@ -41,8 +41,16 @@ pub fn download_voicebank(
     let install_subdir_clone = install_subdir.clone();
 
     std::thread::spawn(move || {
-        let zip_filename = format!("{}.zip", install_id_clone);
+        // 从 URL 获取后缀，优先处理没有参数和片段的情况
+        let url_path = url.split('?').next().unwrap_or(&url).split('#').next().unwrap_or(&url);
+        let extension = Path::new(url_path)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or("zip");
+        
+        let zip_filename = format!("{}.{}", install_id_clone, extension);
         let zip_path = Path::new(&save_path_clone).join(&zip_filename);
+        let aria2_control_file = Path::new(&save_path_clone).join(format!("{}.aria2", zip_filename));
         
         // 优先使用 install_subdir 作为安装目录，否则退回到使用 install_id
         let target_subdir = install_subdir_clone.unwrap_or_else(|| install_id_clone.clone());
@@ -138,6 +146,11 @@ pub fn download_voicebank(
                 // 等待一小会儿确保文件句柄完全释放（特别是在 Windows 上）
                 std::thread::sleep(std::time::Duration::from_millis(500));
 
+                // 更新逻辑：解压前清理旧的目标目录
+                if dest_dir.exists() {
+                    let _ = fs::remove_dir_all(&dest_dir);
+                }
+
                 match unzip_file(&seven_zip_path_clone, &zip_path, &dest_dir) {
                     Ok(_) => {
                         let _ = fs::remove_file(&zip_path);
@@ -162,6 +175,10 @@ pub fn download_voicebank(
                 // 如果 zip 还在，说明是中途停止或失败，清理临时文件
                 if zip_path.exists() {
                     let _ = fs::remove_file(&zip_path);
+                }
+                // 清理 aria2 控制文件
+                if aria2_control_file.exists() {
+                    let _ = fs::remove_file(&aria2_control_file);
                 }
                 let _ = app_handle.emit("download-error", "下载已取消或出错");
             }

@@ -136,22 +136,6 @@ const handleInstall = async (vb: any) => {
 
   const statusKey = vb.install_subdir ? `${vb.id}|${vb.install_subdir}` : vb.id
 
-  // 如果是更新（已安装但需要更新），先执行删除
-  if (vbStatuses.value[statusKey]?.installed && vbStatuses.value[statusKey]?.needs_update) {
-    const settings = StoreData.loadSettings('app_settings') || {
-      voicebankPath: './Singers',
-    }
-    if (vb.install_subdir) {
-      try {
-        message.info(`正在清理旧版本: ${vb.id}`)
-        await invoke('del_dir', { path: `${settings.voicebankPath}/${vb.install_subdir}` })
-      } catch (err) {
-        message.error(`清理旧版本失败: ${err}`)
-        return
-      }
-    }
-  }
-  
   if (isDownloading.value || downloadQueue.value.some(t => t.id === vb.id) || (currentTask.value?.id === vb.id)) {
     if (downloadQueue.value.some(t => t.id === vb.id) || currentTask.value?.id === vb.id) {
         message.warning('该任务已在队列中')
