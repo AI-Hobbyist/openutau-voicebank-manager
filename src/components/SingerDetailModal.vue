@@ -128,13 +128,23 @@ const updateStatuses = async () => {
   }
 }
 
+const isCloudUrl = (url: string) => {
+  if (!url) return false
+  const lastPart = url.split('/').pop() || ''
+  return !lastPart.includes('.')
+}
+
 const handleInstall = async (vb: any) => {
   if (!vb.url) {
     message.warning('未找到可安装的版本链接')
     return
   }
 
-  const statusKey = vb.install_subdir ? `${vb.id}|${vb.install_subdir}` : vb.id
+  // 网盘下载逻辑
+  if (isCloudUrl(vb.url)) {
+    handleOpenLink(vb.url)
+    return
+  }
 
   if (isDownloading.value || downloadQueue.value.some(t => t.id === vb.id) || (currentTask.value?.id === vb.id)) {
     if (downloadQueue.value.some(t => t.id === vb.id) || currentTask.value?.id === vb.id) {
@@ -469,7 +479,21 @@ defineExpose({ openDetails, handleCancelDownload })
             <n-space size="small" style="margin-top: 8px;">
               <!-- 未安装时的按钮 -->
               <template v-if="!getVbStatus(vb).installed && !(currentTask?.id === vb.id || downloadQueue.some(t => t.id === vb.id))">
-                <n-popover trigger="hover" v-if="vb.sha256">
+                <n-popover trigger="hover" v-if="isCloudUrl(vb.url)">
+                  <template #trigger>
+                    <n-button
+                      size="small"
+                      strong
+                      @click="handleInstall(vb)"
+                    >
+                      网盘下载
+                    </n-button>
+                  </template>
+                  <div style="font-size: 12px;">
+                    该声库存放于第三方网盘。点击将跳转至浏览器，请手动下载并安装，后续更新和卸载也需要手动操作。<br>管理器无法自动追踪网盘声库的安装状态、版本更新或卸载。
+                  </div>
+                </n-popover>
+                <n-popover trigger="hover" v-else-if="vb.sha256">
                   <template #trigger>
                     <n-button
                       size="small"
@@ -515,10 +539,13 @@ defineExpose({ openDetails, handleCancelDownload })
                       type="warning"
                       @click="handleInstall(vb)"
                     >
-                      更新
+                      {{ isCloudUrl(vb.url) ? '网盘下载' : '更新' }}
                     </n-button>
                   </template>
-                  <div style="font-size: 12px; font-family: monospace;">
+                  <div v-if="isCloudUrl(vb.url)" style="font-size: 12px;">
+                    网盘下载的需要自己手动安装，<br/>并且无法通过声库管理器直接管理
+                  </div>
+                  <div v-else style="font-size: 12px; font-family: monospace;">
                     本地 SHA256:<br/>{{ getVbStatus(vb).local_sha256 || '未校验' }}
                   </div>
                 </n-popover>
@@ -533,7 +560,7 @@ defineExpose({ openDetails, handleCancelDownload })
                   卸载
                 </n-button>
               </template>
-              <n-button size="small" secondary @click="handleOpenLink(singerInfo.website_url)">官网</n-button>
+              <n-button v-if="singerInfo.website_url" size="small" secondary @click="handleOpenLink(singerInfo.website_url)">官网</n-button>
             </n-space>
             <!-- 下载进度条 -->
             <div v-if="isDownloading && vb.url === (currentTask?.id === vb.id ? currentTask?.url : '')" style="margin-top: 8px;">

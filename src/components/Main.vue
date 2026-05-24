@@ -5,6 +5,7 @@ import { open as openBrowser } from '@tauri-apps/plugin-shell'
 import {
   darkTheme,
   NIcon,
+  useMessage,
 } from 'naive-ui'
 
 import SingerDetailModal from './SingerDetailModal.vue'
@@ -12,6 +13,7 @@ import Settings from './Settings.vue'
 import { StoreData } from '../classes/store_data'
 import { getRequest } from '../classes/requests'
 
+const message = useMessage()
 const detailModalRef = ref<InstanceType<typeof SingerDetailModal> | null>(null)
 const settingsRef = ref<InstanceType<typeof Settings> | null>(null)
 const loading = ref(false)
@@ -231,6 +233,37 @@ onMounted(async () => {
   // 这里不再监听下载事件，全部通过 SingerDetailModal 的 queue-change 事件同步
 })
 
+const filterType = ref<'all' | 'installed' | 'update' | 'direct' | 'cloud'>('all')
+
+const directCount = computed(() => {
+  if (!rawData.value.singers) return 0
+  return Object.values(rawData.value.singers).filter((singer: any) => {
+    if (!singer.voicebanks) return false
+    return Object.values(singer.voicebanks).some((vb: any) => {
+      const url = vb.url || ''
+      const lastPart = url.split('/').pop() || ''
+      return lastPart.includes('.')
+    })
+  }).length
+})
+
+const cloudCount = computed(() => {
+  if (!rawData.value.singers) return 0
+  return Object.values(rawData.value.singers).filter((singer: any) => {
+    if (!singer.voicebanks) return false
+    return Object.values(singer.voicebanks).some((vb: any) => {
+      const url = vb.url || ''
+      const lastPart = url.split('/').pop() || ''
+      return !lastPart.includes('.')
+    })
+  }).length
+})
+
+const handleCopyId = (id: string) => {
+  navigator.clipboard.writeText(id)
+  message.success('已复制 ID: ' + id)
+}
+
 // 按 team 分组数据并应用搜索过滤
 const groupedSingers = computed(() => {
   const groups: Record<string, any[]> = {}
@@ -239,15 +272,38 @@ const groupedSingers = computed(() => {
   const query = searchQuery.value.toLowerCase().trim()
 
   Object.values(rawData.value.singers).forEach((singer: any) => {
+    const singerVbs = Object.values(singer.voicebanks || {})
     const matchesQuery = !query ||
       singer.name?.toLowerCase().includes(query) ||
       singer.description?.toLowerCase().includes(query) ||
-      singer.team?.toLowerCase().includes(query)
+      singer.team?.toLowerCase().includes(query) ||
+      singerVbs.some((vb: any) => vb.id?.toLowerCase().includes(query))
 
-    if (matchesQuery) {
-      if (!groups[singer.team]) groups[singer.team] = []
-      groups[singer.team].push(singer)
+    if (!matchesQuery) return
+
+    // 应用过滤器
+    if (filterType.value === 'installed') {
+      if (!installedMap.value[singer.name]) return
+    } else if (filterType.value === 'update') {
+      if (!updateMap.value[singer.name]) return
+    } else if (filterType.value === 'direct') {
+      const hasDirect = singer.voicebanks && Object.values(singer.voicebanks).some((vb: any) => {
+        const url = vb.url || ''
+        const lastPart = url.split('/').pop() || ''
+        return lastPart.includes('.')
+      })
+      if (!hasDirect) return
+    } else if (filterType.value === 'cloud') {
+      const hasCloud = singer.voicebanks && Object.values(singer.voicebanks).some((vb: any) => {
+        const url = vb.url || ''
+        const lastPart = url.split('/').pop() || ''
+        return !lastPart.includes('.')
+      })
+      if (!hasCloud) return
     }
+
+    if (!groups[singer.team]) groups[singer.team] = []
+    groups[singer.team].push(singer)
   })
   return groups
 })
@@ -287,22 +343,73 @@ const getLanguages = (singer: any) => {
           border-bottom: 1px solid #333;
         "
       >
-        <n-flex justify="space-between" align="center">
-          <div>
-            <n-h2 style="margin: 0; margin-left: -130px;">声库管理</n-h2>
+        <n-flex justify="space-between" align="center" :wrap="false">
+          <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start;">
+            <n-h2 style="margin: 0;">声库管理</n-h2>
             <n-flex style="margin-top: 8px;" :size="[8, 8]">
-              <n-tag :bordered="false" type="success" size="small" round>已安装 {{ installedCount }}</n-tag>
-              <n-tag :bordered="false" type="warning" size="small" round>待更新 {{ pendingUpdateCount }}</n-tag>
-              <n-tag :bordered="false" type="info" size="small" round>声库总量 {{ singerCount }}</n-tag>
+              <n-tag 
+                :bordered="false" 
+                :type="filterType === 'installed' ? 'success' : 'default'" 
+                size="small" 
+                round 
+                style="cursor: pointer;"
+                @click="filterType = filterType === 'installed' ? 'all' : 'installed'"
+                v-if="installedCount > 0"
+              >
+                已安装 {{ installedCount }}
+              </n-tag>
+              <n-tag 
+                :bordered="false" 
+                :type="filterType === 'update' ? 'warning' : 'default'" 
+                size="small" 
+                round 
+                style="cursor: pointer;"
+                @click="filterType = filterType === 'update' ? 'all' : 'update'"
+                v-if="pendingUpdateCount > 0"
+              >
+                待更新 {{ pendingUpdateCount }}
+              </n-tag>
+              <n-tag 
+                :bordered="false" 
+                :type="filterType === 'direct' ? 'info' : 'default'" 
+                size="small" 
+                round 
+                style="cursor: pointer;"
+                @click="filterType = filterType === 'direct' ? 'all' : 'direct'"
+                v-if="directCount > 0"
+              >
+                直链下载 {{ directCount }}
+              </n-tag>
+              <n-tag 
+                :bordered="false" 
+                :type="filterType === 'cloud' ? 'primary' : 'default'" 
+                size="small" 
+                round 
+                style="cursor: pointer;"
+                @click="filterType = filterType === 'cloud' ? 'all' : 'cloud'"
+                v-if="cloudCount > 0"
+              >
+                网盘下载 {{ cloudCount }}
+              </n-tag>
+              <n-tag 
+                :bordered="false" 
+                type="info" 
+                size="small" 
+                round 
+                style="cursor: pointer;"
+                @click="filterType = 'all'"
+              >
+                全部 {{ singerCount }}
+              </n-tag>
               <n-tag v-if="searchQuery" :bordered="false" type="primary" size="small" round>已过滤 {{ filteredCount }}</n-tag>
             </n-flex>
           </div>
           <n-flex :size="[12, 8]" align="center">
             <n-input
               v-model:value="searchQuery"
-              placeholder="搜索名称、描述或团队..."
+              placeholder="搜索ID、名称、描述或分类..."
               clearable
-              style="width: 240px"
+              style="width: 260px"
             >
               <template #prefix>
                 <n-icon>
@@ -323,6 +430,16 @@ const getLanguages = (singer: any) => {
                 </n-badge>
               </template>
               队列
+            </n-button>
+            <n-button secondary @click="handleOpenLink('https://voice.acgnai.top')">
+              <template #icon>
+                <n-icon>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                    <path d="M473 39.05a24 24 0 00-25.5-5.46L47.47 185c-17.86 6.42-19.32 30.54-2.31 39l161.49 80.7a48 48 0 0121.46 21.46l80.7 161.49c8.44 17 32.57 15.55 39-2.31L478.4 64.55a24 24 0 00-5.4-25.5z" fill="currentColor"/>
+                  </svg>
+                </n-icon>
+              </template>
+              声库提交
             </n-button>
             <n-button secondary @click="handleOpenInstallDir">打开声库目录</n-button>
             <n-button secondary @click="handleOpenSettings">设置</n-button>
@@ -386,13 +503,48 @@ const getLanguages = (singer: any) => {
               </template>
 
               <!-- 歌手信息 -->
-              <n-space vertical size="small">
-                <n-text strong style="font-size: 1.2rem;">{{ singer.name }}</n-text>
-                <n-text depth="3" style="font-size: 0.8rem;">
+              <n-space vertical size="small" align="center">
+                <n-text strong style="font-size: 1.2rem; text-align: center;">{{ singer.name }}</n-text>
+                <n-flex align="center" justify="center" :size="4" style="margin-top: -4px; width: 100%;">
+                  <n-popover trigger="hover">
+                    <template #trigger>
+                      <n-text 
+                        depth="3" 
+                        style="
+                          font-size: 0.75rem; 
+                          font-family: monospace; 
+                          max-width: 150px; 
+                          overflow: hidden; 
+                          text-overflow: ellipsis; 
+                          white-space: nowrap;
+                          cursor: default;
+                        "
+                      >
+                        ID: {{ (Object.values(singer.voicebanks || {})[0] as any)?.id || 'N/A' }}
+                      </n-text>
+                    </template>
+                    <span>{{ (Object.values(singer.voicebanks || {})[0] as any)?.id || 'N/A' }}</span>
+                  </n-popover>
+                  <n-button 
+                    text 
+                    style="font-size: 12px; color: #666;" 
+                    @click.stop="handleCopyId((Object.values(singer.voicebanks || {})[0] as any)?.id || '')"
+                  >
+                    <template #icon>
+                      <n-icon>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                          <path d="M408 480H184a48 48 0 01-48-48V160a48 48 0 0148-48h224a48 48 0 0148 48v272a48 48 0 01-48 48z" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"/>
+                          <path d="M368 112V80a48 48 0 00-48-48H104a48 48 0 00-48 48v272a48 48 0 0048 48h32" fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="32"/>
+                        </svg>
+                      </n-icon>
+                    </template>
+                  </n-button>
+                </n-flex>
+                <n-text depth="3" style="font-size: 0.8rem; text-align: center;">
                   {{ Object.keys(singer.voicebanks || {}).length }} 个版本<br />
                   {{ getLanguages(singer) }}
                 </n-text>
-                <n-text depth="2" class="description">
+                <n-text depth="2" class="description" style="text-align: center;">
                   {{ singer.description }}
                 </n-text>
               </n-space>
@@ -401,10 +553,10 @@ const getLanguages = (singer: any) => {
               <template #action>
                 <n-flex size="small" justify="center" @click.stop>
                   <n-button @click="handleOpen(singer)" size="small" secondary>详情</n-button>
-                  <n-button size="small" secondary @click="handleOpenLink(singer.website_url)">
+                  <n-button v-if="singer.website_url" size="small" secondary @click="handleOpenLink(singer.website_url)">
                     官网
                   </n-button>
-                  <n-button size="small" secondary @click="handleOpenLink(singer.link)">
+                  <n-button v-if="singer.link" size="small" secondary @click="handleOpenLink(singer.link)">
                     主页
                   </n-button>
                 </n-flex>
