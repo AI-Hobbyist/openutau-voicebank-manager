@@ -221,7 +221,7 @@ const handleCancelDownload = async (vb: any) => {
 const handleUninstall = (vb: any) => {
   dialog.error({
     title: '确认删除',
-    content: `确定要删除声库 ${singerInfo.value.name}(id: ${vb.id}) 吗？该操作不可撤回。`,
+    content: `确定要将声库 ${singerInfo.value.name}(id: ${vb.id}) 移动到回收站吗？`,
     positiveText: '确认',
     negativeText: '取消',
     onPositiveClick: async () => {
